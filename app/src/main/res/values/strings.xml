@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">jWire</string>
+    <!--Response Codes-->
+    <string name="response_200">CONNECTED</string>
+    <string name="response_400">400: Bad Request</string>
+    <string name="response_403">403: Forbidden</string>
+    <string name="response_500">500: Internal Server Error</string>
+    <string name="response_other">Error: Unknown Error, Please Restart</string>
+    <string name="response_error">Error: </string>
+    <string name="response_no_data">Error: The server returned no data. Try again later.</string>
+    <!--Hint Strings-->
+    <string name="textview_hint_title">President says thing, world reacts</string>
+    <string name="textview_hint_author">Mia Wong</string>
+    <string name="textview_hint_section">Opinion</string>
+    <string name="textview_hint_date_time">3/15/2004</string>
+    <string name="textview_hint_status">Connected</string>
+</resources>
