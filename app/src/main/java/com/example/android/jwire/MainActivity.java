@@ -35,7 +35,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
      * URL: https://medium.com/@sanjeevy133/an-idiots-guide-to-android-asynctaskloader-76f8bfb0a0c0
      */
 
-    //This is the loaderID, a unique number to reference the loader by if we need to later.
+    //This is the loaderID, a unique number to reference the loader by if we need to later
     int loaderID = 1;
     //This is the string we're going to pass to the networking code so we can download the right
     //JSON data to parse and display news.  We'll add code later to allow the user to change this,
@@ -43,7 +43,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     static final String  dataURL =  "https://content.guardianapis.com/search?format=json&show-fields=byline,starRating,headline,thumbnail,short-url&api-key=dc0adc63-cbd9-4080-9f96-2a374025533e";
     //JSON data string
     String jsonData;
-    
+
     @Override
     public Loader<String> onCreateLoader(int id, final Bundle args){
         //This is where the AsyncTaskLoader will be created
@@ -151,7 +151,6 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
     /**
      * We call this subroutine to download the JSON and display it.
-     * @param url
      */
     private void makeOperationSearchQuery(String url){
         //To trigger the loader we create a bundle
