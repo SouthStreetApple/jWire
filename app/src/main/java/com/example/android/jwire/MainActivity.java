@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.LoaderManager;
 import android.support.v4.content.AsyncTaskLoader;
@@ -27,6 +28,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<String>{
@@ -44,11 +46,16 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     //JSON data string
     String jsonData;
 
+    @NonNull
     @Override
     public Loader<String> onCreateLoader(int id, final Bundle args){
         //This is where the AsyncTaskLoader will be created
         return new AsyncTaskLoader<String>(this) {
-            @Nullable
+
+            //We can hold the JSON data here for when we rotate the screen
+            //URL: http://www.riptutorial.com/android/example/16217/asynctaskloader-with-cache
+            private final AtomicReference<String> tempJSONData = new AtomicReference<>();
+
             @Override
             public String loadInBackground(){
                 //This is where the start the networking stuff (so our screen doesn't freeze)
@@ -73,13 +80,12 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
              * just pass the data back and use it again.
              * If it is empty then we will need to forceLoad() and re-download the data!
              */
-            String tempJSONData;
             @Override
             protected void onStartLoading(){
                 //Now we are going to see if the jsonData variable is empty, if it is reload.
-                if (tempJSONData != null){
+                if (tempJSONData.get() != null){
                     //Do not reload the HTTP, just send the data back we already have.
-                    deliverResult(tempJSONData);
+                    deliverResult(tempJSONData.get());
                 } else {
                     forceLoad();
                 }
@@ -87,7 +93,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
             @Override
             public void deliverResult(String data){
-                tempJSONData = data;
+                tempJSONData.set(data);
                 super.deliverResult(data);
             }
         };
@@ -113,23 +119,31 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         //now we will extract he json news items and return them as an arrayList!
         newsItems = json.extractNewsItems();
 
-        //Create a variable to reference the listView so we can modify it.
-        ListView listView = findViewById(R.id.news_item_list);
+        //Check to see if newsItem is null
+        if (newsItems != null){
+            //Create a variable to reference the listView so we can modify it.
+            ListView listView = findViewById(R.id.news_item_list);
 
-        //Set the listView to use the info from the newsItems array
-        itemAdapter ia = new itemAdapter(this,newsItems);
-        listView.setAdapter(ia);
+            //Set the listView to use the info from the newsItems array
+            itemAdapter ia = new itemAdapter(this,newsItems);
+            listView.setAdapter(ia);
 
-        //Set out ItemClickListener
-        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                //Item is selected so we can open a browser with an intent
-                Intent webIntent = new Intent(Intent.ACTION_VIEW);
-                webIntent.setData(Uri.parse(newsItems.get(i).itemUrl));
-                startActivity(webIntent);
-            }
-        });
+            //Set out ItemClickListener
+            listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                @Override
+                public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                    //Item is selected so we can open a browser with an intent
+                    Intent webIntent = new Intent(Intent.ACTION_VIEW);
+                    webIntent.setData(Uri.parse(newsItems.get(i).itemUrl));
+                    startActivity(webIntent);
+                }
+            });
+        } else {
+            //newsItems was null, which happens when the JSON is incorrectly formatted (not empty)
+            //Display an error message.
+            TextView textViewStatus = (TextView) findViewById(R.id.news_status);
+            textViewStatus.setText(getApplicationContext().getString(R.string.response_json_formatting));
+        }
     }
 
     @Override
@@ -193,53 +207,88 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         HttpURLConnection urlConnection = null;
         InputStream inputStream = null;
         TextView textViewStatus = (TextView) findViewById(R.id.news_status);
-        try {
-            urlConnection = (HttpURLConnection) url.openConnection();
-            urlConnection.setRequestMethod("GET");
-            urlConnection.setReadTimeout(10000 /* milliseconds */);
-            urlConnection.setConnectTimeout(15000 /* milliseconds */);
-            urlConnection.connect();
-            inputStream = urlConnection.getInputStream();
-            //Now where going to handle the urlConnection Response codes, and return a JSON response.
-            switch (urlConnection.getResponseCode()){
-                case 200:
-                    textViewStatus.setText(getApplicationContext().getString(R.string.response_200));
-                    jsonResponse = readFromStream(inputStream);
-                    break;
-                case 400:
-                    textViewStatus.setText(getApplicationContext().getString(R.string.response_400));
-                    jsonResponse = "";
-                    break;
-                case 403:
-                    textViewStatus.setText(getApplicationContext().getString(R.string.response_403));
-                    jsonResponse = "";
-                    break;
-                case 500:
-                    textViewStatus.setText(getApplicationContext().getString(R.string.response_500));
-                    jsonResponse = "";
-                    break;
-                default:
-                    //Instead of being a default response we're using this like an 'else' response.
-                    textViewStatus.setText(getApplicationContext().getString(R.string.response_other));
-                    jsonResponse = "";
-                    break;
+        if(haveNetworkConnection()==true){
+            try {
+                urlConnection = (HttpURLConnection) url.openConnection();
+                urlConnection.setRequestMethod("GET");
+                urlConnection.setReadTimeout(10000 /* milliseconds */);
+                urlConnection.setConnectTimeout(15000 /* milliseconds */);
+                urlConnection.connect();
+                inputStream = urlConnection.getInputStream();
+                //Now where going to handle the urlConnection Response codes, and return a JSON response.
+                switch (urlConnection.getResponseCode()){
+                    case 200:
+                        textViewStatus.setText(getApplicationContext().getString(R.string.response_200));
+                        jsonResponse = readFromStream(inputStream);
+                        break;
+                    case 400:
+                        textViewStatus.setText(getApplicationContext().getString(R.string.response_400));
+                        jsonResponse = "";
+                        if (urlConnection != null) {
+                            urlConnection.disconnect();
+                        }
+                        if (inputStream != null) {
+                            //We close the stream so that it doesn't remain open.
+                            inputStream.close();
+                        }
+                        return jsonResponse;
+                    case 403:
+                        textViewStatus.setText(getApplicationContext().getString(R.string.response_403));
+                        jsonResponse = "";
+                        if (urlConnection != null) {
+                            urlConnection.disconnect();
+                        }
+                        if (inputStream != null) {
+                            //We close the stream so that it doesn't remain open.
+                            inputStream.close();
+                        }
+                        return jsonResponse;
+                    case 500:
+                        textViewStatus.setText(getApplicationContext().getString(R.string.response_500));
+                        jsonResponse = "";
+                        if (urlConnection != null) {
+                            urlConnection.disconnect();
+                        }
+                        if (inputStream != null) {
+                            //We close the stream so that it doesn't remain open.
+                            inputStream.close();
+                        }
+                        return jsonResponse;
+                    default:
+                        //Instead of being a default response we're using this like an 'else' response.
+                        textViewStatus.setText(getApplicationContext().getString(R.string.response_other));
+                        jsonResponse = "";
+                        if (urlConnection != null) {
+                            urlConnection.disconnect();
+                        }
+                        if (inputStream != null) {
+                            //We close the stream so that it doesn't remain open.
+                            inputStream.close();
+                        }
+                        return jsonResponse;
+                }
+            } catch (IOException e) {
+                //We've had an error not handled by the response codes, display the message.
+                textViewStatus.setText(getApplicationContext().getString(R.string.response_error) + e.getMessage());
+            } finally {
+                if (urlConnection != null) {
+                    urlConnection.disconnect();
+                }
+                if (inputStream != null) {
+                    //We close the stream so that it doesn't remain open.
+                    inputStream.close();
+                }
             }
-        } catch (IOException e) {
-            //We've had an error not handled by the response codes, display the message.
-            textViewStatus.setText(getApplicationContext().getString(R.string.response_error) + e.getMessage());
-        } finally {
-            if (urlConnection != null) {
-                urlConnection.disconnect();
-            }
-            if (inputStream != null) {
-                //We close the stream so that it doesn't remain open.
-                inputStream.close();
-            }
+        } else {
+            //No internet connection
+            textViewStatus.setText(getApplicationContext().getString(R.string.response_no_connection));
+            return jsonResponse;
         }
-        if (jsonResponse.equalsIgnoreCase("")){
-            //If for some reason the server just returns nothing, but has a successful 200 code.
-            textViewStatus.setText(getApplicationContext().getString(R.string.response_error));
+        //If there was no other errors or issues, but the JSON response is still empty.
+        if(jsonResponse.equalsIgnoreCase("")){
+            textViewStatus.setText(getApplicationContext().getString(R.string.response_no_data));
         }
+        //Return JSON response
         return jsonResponse;
     }
 
@@ -258,5 +307,26 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
             }
         }
         return output.toString();
+    }
+
+    /**
+     * Function to detect internet connection
+     * URL: https://stackoverflow.com/a/4239410/9849310
+     */
+    private boolean haveNetworkConnection() {
+        boolean haveConnectedWifi = false;
+        boolean haveConnectedMobile = false;
+
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo[] netInfo = cm.getAllNetworkInfo();
+        for (NetworkInfo ni : netInfo) {
+            if (ni.getTypeName().equalsIgnoreCase("WIFI"))
+                if (ni.isConnected())
+                    haveConnectedWifi = true;
+            if (ni.getTypeName().equalsIgnoreCase("MOBILE"))
+                if (ni.isConnected())
+                    haveConnectedMobile = true;
+        }
+        return haveConnectedWifi || haveConnectedMobile;
     }
 }

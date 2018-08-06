@@ -8,6 +8,8 @@
     <string name="response_other">Error: Unknown Error, Please Restart</string>
     <string name="response_error">Error: </string>
     <string name="response_no_data">Error: The server returned no data. Try again later.</string>
+    <string name="response_no_connection">You\'re not connected to the internet.</string>
+    <string name="response_json_formatting">Error: JSON formatting is wrong</string>
     <!--Hint Strings-->
     <string name="textview_hint_title">President says thing, world reacts</string>
     <string name="textview_hint_author">Mia Wong</string>

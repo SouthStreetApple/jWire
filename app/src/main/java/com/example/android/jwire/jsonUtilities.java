@@ -1,6 +1,8 @@
 package com.example.android.jwire;
 
+import android.app.Application;
 import android.util.Log;
+import android.widget.TextView;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -27,7 +29,14 @@ public class jsonUtilities {
         ArrayList<item> newsItems = new ArrayList<>();
 
         /**
-         * We're going to try and parse the JSON response here, probably have some issues.
+         * We're going to try and parse the JSON response here, first let's see if the JSON reply
+         * is not empty.
+         */
+        if (jsonNewsResponse.equalsIgnoreCase("")){
+            return newsItems;
+        }
+        /**
+         * Now we will try to parse the JSON
          */
         try {
 
@@ -46,6 +55,7 @@ public class jsonUtilities {
             String title;
             String section;
             String byline = "";
+
 
             //Get number (count) of news items
             jsonItem = new JSONObject(response.getString("response"));
@@ -105,11 +115,13 @@ public class jsonUtilities {
                         newsItems.add(newsItem);
 
                     } catch (JSONException e) {
+                        return null;
                     }
                 }
             }
 
         } catch (JSONException e) {
+            return null;
         }
 
         // return news items
