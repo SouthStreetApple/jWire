@@ -46,6 +46,9 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     //JSON data string
     String jsonData;
 
+    //TextView Status
+    public TextView textViewStatus;
+
     @NonNull
     @Override
     public Loader<String> onCreateLoader(int id, final Bundle args){
@@ -116,33 +119,42 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         jsonUtilities json = new jsonUtilities();
         //pass the json data to the jsonUtilities class
         json.jsonNewsResponse = jsonData;
-        //now we will extract he json news items and return them as an arrayList!
-        newsItems = json.extractNewsItems();
 
-        //Check to see if newsItem is null
-        if (newsItems != null){
-            //Create a variable to reference the listView so we can modify it.
-            ListView listView = findViewById(R.id.news_item_list);
-
-            //Set the listView to use the info from the newsItems array
-            itemAdapter ia = new itemAdapter(this,newsItems);
-            listView.setAdapter(ia);
-
-            //Set out ItemClickListener
-            listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
-                @Override
-                public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
-                    //Item is selected so we can open a browser with an intent
-                    Intent webIntent = new Intent(Intent.ACTION_VIEW);
-                    webIntent.setData(Uri.parse(newsItems.get(i).itemUrl));
-                    startActivity(webIntent);
-                }
-            });
+        if (jsonData == null){
+            //The JSON response is empty, there must have been a problem with the response
+            textViewStatus.setText(getApplicationContext().getString(R.string.response_no_connection));
+        } else if (jsonData.equalsIgnoreCase("")){
+            //jsonData is null, which should happen when there's been no internet connection
+            textViewStatus.setText(getApplicationContext().getString(R.string.response_no_data));
         } else {
-            //newsItems was null, which happens when the JSON is incorrectly formatted (not empty)
-            //Display an error message.
-            TextView textViewStatus = (TextView) findViewById(R.id.news_status);
-            textViewStatus.setText(getApplicationContext().getString(R.string.response_json_formatting));
+            //JSON response is not empty (and not null) let's try and extract the news items.
+            //and return them as an arrayList!
+            newsItems = json.extractNewsItems();
+            //Check to see if newsItem is null
+            if (newsItems != null){
+
+                //Create a variable to reference the listView so we can modify it.
+                ListView listView = findViewById(R.id.news_item_list);
+
+                //Set the listView to use the info from the newsItems array
+                itemAdapter ia = new itemAdapter(this,newsItems);
+                listView.setAdapter(ia);
+
+                //Set out ItemClickListener
+                listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+                    @Override
+                    public void onItemClick(AdapterView<?> adapterView, View view, int i, long l) {
+                        //Item is selected so we can open a browser with an intent
+                        Intent webIntent = new Intent(Intent.ACTION_VIEW);
+                        webIntent.setData(Uri.parse(newsItems.get(i).itemUrl));
+                        startActivity(webIntent);
+                    }
+                });
+            } else {
+                //newsItems was null, which happens when the JSON is incorrectly formatted or empty
+                //Display an error message.
+                textViewStatus.setText(getApplicationContext().getString(R.string.response_json_formatting));
+            }
         }
     }
 
@@ -157,6 +169,8 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        //Setup variable to display the status
+        textViewStatus = (TextView) findViewById(R.id.news_status);
         //Setup the loader
         getSupportLoaderManager().initLoader(loaderID,null,this);
         //Initiate the data retrieval
@@ -206,7 +220,6 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         String jsonResponse = "";
         HttpURLConnection urlConnection = null;
         InputStream inputStream = null;
-        TextView textViewStatus = (TextView) findViewById(R.id.news_status);
         if(haveNetworkConnection()==true){
             try {
                 urlConnection = (HttpURLConnection) url.openConnection();
@@ -218,45 +231,10 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
                 //Now where going to handle the urlConnection Response codes, and return a JSON response.
                 switch (urlConnection.getResponseCode()){
                     case 200:
-                        textViewStatus.setText(getApplicationContext().getString(R.string.response_200));
                         jsonResponse = readFromStream(inputStream);
                         break;
-                    case 400:
-                        textViewStatus.setText(getApplicationContext().getString(R.string.response_400));
-                        jsonResponse = "";
-                        if (urlConnection != null) {
-                            urlConnection.disconnect();
-                        }
-                        if (inputStream != null) {
-                            //We close the stream so that it doesn't remain open.
-                            inputStream.close();
-                        }
-                        return jsonResponse;
-                    case 403:
-                        textViewStatus.setText(getApplicationContext().getString(R.string.response_403));
-                        jsonResponse = "";
-                        if (urlConnection != null) {
-                            urlConnection.disconnect();
-                        }
-                        if (inputStream != null) {
-                            //We close the stream so that it doesn't remain open.
-                            inputStream.close();
-                        }
-                        return jsonResponse;
-                    case 500:
-                        textViewStatus.setText(getApplicationContext().getString(R.string.response_500));
-                        jsonResponse = "";
-                        if (urlConnection != null) {
-                            urlConnection.disconnect();
-                        }
-                        if (inputStream != null) {
-                            //We close the stream so that it doesn't remain open.
-                            inputStream.close();
-                        }
-                        return jsonResponse;
                     default:
                         //Instead of being a default response we're using this like an 'else' response.
-                        textViewStatus.setText(getApplicationContext().getString(R.string.response_other));
                         jsonResponse = "";
                         if (urlConnection != null) {
                             urlConnection.disconnect();
@@ -268,8 +246,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
                         return jsonResponse;
                 }
             } catch (IOException e) {
-                //We've had an error not handled by the response codes, display the message.
-                textViewStatus.setText(getApplicationContext().getString(R.string.response_error) + e.getMessage());
+                //Error
             } finally {
                 if (urlConnection != null) {
                     urlConnection.disconnect();
@@ -280,13 +257,8 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
                 }
             }
         } else {
-            //No internet connection
-            textViewStatus.setText(getApplicationContext().getString(R.string.response_no_connection));
-            return jsonResponse;
-        }
-        //If there was no other errors or issues, but the JSON response is still empty.
-        if(jsonResponse.equalsIgnoreCase("")){
-            textViewStatus.setText(getApplicationContext().getString(R.string.response_no_data));
+            //No internet connection, JSON will be empty.
+            return null;
         }
         //Return JSON response
         return jsonResponse;
