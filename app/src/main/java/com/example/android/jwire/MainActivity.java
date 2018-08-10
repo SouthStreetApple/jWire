@@ -2,9 +2,11 @@ package com.example.android.jwire;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.LoaderManager;
@@ -13,6 +15,8 @@ import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
@@ -31,7 +35,7 @@ import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 
 
-public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<String>{
+public class MainActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<String> {
     /**
      * AsyncTaskLoader code adapted from sanjeev yadav's excellent tutorial
      * URL: https://medium.com/@sanjeevy133/an-idiots-guide-to-android-asynctaskloader-76f8bfb0a0c0
@@ -42,7 +46,13 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     //This is the string we're going to pass to the networking code so we can download the right
     //JSON data to parse and display news.  We'll add code later to allow the user to change this,
     //so we can customize the news search.
-    static final String  dataURL =  "https://content.guardianapis.com/search?format=json&show-fields=byline,starRating,headline,thumbnail,short-url&api-key=dc0adc63-cbd9-4080-9f96-2a374025533e";
+
+    //Old complete URL, REMOVE LATER
+    //static final String  dataURL =  "https://content.guardianapis.com/search?format=json&show-fields=byline,starRating,headline,thumbnail,short-url&api-key=dc0adc63-cbd9-4080-9f96-2a374025533e";
+
+    //This is the base URL, we'll construct the rest of it later in constructURL
+    static final String dataURL = "https://content.guardianapis.com/search?";
+
     //JSON data string
     String jsonData;
 
@@ -51,7 +61,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
 
     @NonNull
     @Override
-    public Loader<String> onCreateLoader(int id, final Bundle args){
+    public Loader<String> onCreateLoader(int id, final Bundle args) {
         //This is where the AsyncTaskLoader will be created
         return new AsyncTaskLoader<String>(this) {
 
@@ -60,17 +70,17 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
             private final AtomicReference<String> tempJSONData = new AtomicReference<>();
 
             @Override
-            public String loadInBackground(){
+            public String loadInBackground() {
                 //This is where the start the networking stuff (so our screen doesn't freeze)
                 String url = args.getString("url");
-                if (url == null && "".equals(url)){
+                if (url == null && "".equals(url)) {
                     //If the url is somehow null (something went wrong) return nothing.
                     return null;
                 } else {
                     String dataResult = "";
                     try {
                         //Now let's try to get that JSON data!
-                        dataResult = makeHttpRequest(createUrl(url));
+                        dataResult = makeHttpRequest(constructURL(url));
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
@@ -84,9 +94,9 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
              * If it is empty then we will need to forceLoad() and re-download the data!
              */
             @Override
-            protected void onStartLoading(){
+            protected void onStartLoading() {
                 //Now we are going to see if the jsonData variable is empty, if it is reload.
-                if (tempJSONData.get() != null){
+                if (tempJSONData.get() != null) {
                     //Do not reload the HTTP, just send the data back we already have.
                     deliverResult(tempJSONData.get());
                 } else {
@@ -95,7 +105,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
             }
 
             @Override
-            public void deliverResult(String data){
+            public void deliverResult(String data) {
                 tempJSONData.set(data);
                 super.deliverResult(data);
             }
@@ -104,7 +114,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     }
 
     @Override
-    public void onLoadFinished(Loader<String> loader, String data){
+    public void onLoadFinished(Loader<String> loader, String data) {
         /**
          * The GUI may already be loaded (hopefully) so we need to refresh it to reflect the new
          * data we have collected.  This should wipe out the previous GUI and replace with GUI
@@ -120,10 +130,10 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         //pass the json data to the jsonUtilities class
         json.jsonNewsResponse = jsonData;
 
-        if (jsonData == null){
+        if (jsonData == null) {
             //The JSON response is empty, there must have been a problem with the response
             textViewStatus.setText(getApplicationContext().getString(R.string.response_no_connection));
-        } else if (jsonData.equalsIgnoreCase("")){
+        } else if (jsonData.equalsIgnoreCase("")) {
             //jsonData is null, which should happen when there's been no internet connection
             textViewStatus.setText(getApplicationContext().getString(R.string.response_no_data));
         } else {
@@ -131,13 +141,13 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
             //and return them as an arrayList!
             newsItems = json.extractNewsItems();
             //Check to see if newsItem is null
-            if (newsItems != null){
+            if (newsItems != null) {
 
                 //Create a variable to reference the listView so we can modify it.
                 ListView listView = findViewById(R.id.news_item_list);
 
                 //Set the listView to use the info from the newsItems array
-                itemAdapter ia = new itemAdapter(this,newsItems);
+                itemAdapter ia = new itemAdapter(this, newsItems);
                 listView.setAdapter(ia);
 
                 //Set out ItemClickListener
@@ -159,7 +169,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
     }
 
     @Override
-    public void onLoaderReset(Loader<String> loader){
+    public void onLoaderReset(Loader<String> loader) {
         //Now sure what we can use this for yet.
     }
 
@@ -172,19 +182,59 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         //Setup variable to display the status
         textViewStatus = (TextView) findViewById(R.id.news_status);
         //Setup the loader
-        getSupportLoaderManager().initLoader(loaderID,null,this);
+        getSupportLoaderManager().initLoader(loaderID, null, this);
         //Initiate the data retrieval
         makeOperationSearchQuery(dataURL);
     }
 
     /**
+     * The below will construct the URI from the string with the base URL for The Guardian
+     */
+    private URL constructURL(String baseURL) {
+        //We need to load the preferences into memory
+        SharedPreferences sharedPrefs = PreferenceManager.getDefaultSharedPreferences(this);
+        String maximumResults = sharedPrefs.getString(getString(R.string.settings_number_of_results_key), getString(R.string.settings_number_of_results_default));
+        String searchTerms = sharedPrefs.getString(getString(R.string.settings_search_terms_key), getString(R.string.settings_search_terms_default));
+
+        //Create BASE URI from the
+        Uri baseUri = Uri.parse(baseURL);
+
+        //Build the URI with new query parameters.
+        Uri.Builder uriBuilder = baseUri.buildUpon();
+
+        //Append the default query parameters
+        //Format
+        uriBuilder.appendQueryParameter("format", "json");
+        //Editions
+        uriBuilder.appendQueryParameter("edition", "us");
+        //Tags to show
+        uriBuilder.appendQueryParameter("show-tags", "contributor");
+        //Fields to show
+        uriBuilder.appendQueryParameter("show-fields", "starRating,headline,thumbnail,short-url,byline");
+        //Order to show in (may be an option later..
+        uriBuilder.appendQueryParameter("order-by", "newest");
+
+        //Append Option Parameters
+        uriBuilder.appendQueryParameter("page-size", maximumResults);
+        uriBuilder.appendQueryParameter("q", searchTerms);
+
+        //API KEY
+        uriBuilder.appendQueryParameter("api-key", getString(R.string.api_key));
+
+        //Return the URL!
+        URL url = createUrl(uriBuilder.toString());
+
+        return url;
+    }
+
+    /**
      * We call this subroutine to download the JSON and display it.
      */
-    private void makeOperationSearchQuery(String url){
+    private void makeOperationSearchQuery(String url) {
         //To trigger the loader we create a bundle
         Bundle queryBundle = new Bundle();
         //Now we need to put the URL string into the Bundle to it gets properly passed
-        queryBundle.putString("url",url);
+        queryBundle.putString("url", url);
 
         //We now want to store getSupportLoaderManager in a variable
         LoaderManager loaderManager = getSupportLoaderManager();
@@ -192,10 +242,10 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         Loader<String> loader = loaderManager.getLoader(loaderID);
 
         //Now we need to check if the loader is null, if it is initiate it if otherwise, restart
-        if(loader == null){
-            loaderManager.initLoader(loaderID, queryBundle,this);
+        if (loader == null) {
+            loaderManager.initLoader(loaderID, queryBundle, this);
         } else {
-            loaderManager.restartLoader(loaderID,queryBundle,this);
+            loaderManager.restartLoader(loaderID, queryBundle, this);
         }
     }
 
@@ -220,7 +270,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         String jsonResponse = "";
         HttpURLConnection urlConnection = null;
         InputStream inputStream = null;
-        if(haveNetworkConnection()==true){
+        if (haveNetworkConnection() == true) {
             try {
                 urlConnection = (HttpURLConnection) url.openConnection();
                 urlConnection.setRequestMethod("GET");
@@ -229,7 +279,7 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
                 urlConnection.connect();
                 inputStream = urlConnection.getInputStream();
                 //Now where going to handle the urlConnection Response codes, and return a JSON response.
-                switch (urlConnection.getResponseCode()){
+                switch (urlConnection.getResponseCode()) {
                     case 200:
                         jsonResponse = readFromStream(inputStream);
                         break;
@@ -301,4 +351,26 @@ public class MainActivity extends AppCompatActivity implements LoaderManager.Loa
         }
         return haveConnectedWifi || haveConnectedMobile;
     }
+
+    /**
+     * Now we're going to add the menu code so that our custom settings menu shows up!
+     */
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_settings) {
+            Intent settingsIntent = new Intent(this, SettingsActivity.class);
+            startActivity(settingsIntent);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
 }

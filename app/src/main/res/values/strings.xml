@@ -16,4 +16,19 @@
     <string name="textview_hint_section">Opinion</string>
     <string name="textview_hint_date_time">3/15/2004</string>
     <string name="textview_hint_status">Connected</string>
+    <!--Preferences-->
+    <string name="settings_menu_item">Settings</string>
+    <string name="settings_title">jWire Settings</string>
+    <!--Settings-->
+    <string name="settings_number_of_results_label">Maximum Results</string>
+    <string name="settings_number_of_results_key">number_results</string>
+    <string name="settings_number_of_results_default">5</string>
+
+    <string name="settings_search_terms_label">Search Terms</string>
+    <string name="settings_search_terms_key">search_terms</string>
+    <string name="settings_search_terms_default"></string>
+
+
+    <!--API KEY-->
+    <string name="api_key">dc0adc63-cbd9-4080-9f96-2a374025533e</string>
 </resources>
